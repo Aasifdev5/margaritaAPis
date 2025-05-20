@@ -12,15 +12,15 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
 
-class ProductController extends Controller {
+class ProductController extends Controller
+{
 
-   public function index($category, $subcategory, Request $request) {
-    return response()->json(
-        Product::where('category_id', $category)
-               ->where('subcategory_id', $subcategory)
-               ->paginate(10)
-    );
-}
+    public function index($category, Request $request)
+    {
+        return response()->json(
+            Product::where('category_id', $category)->paginate(10)
+        );
+    }
     // Show Product List
     public function list()
     {
@@ -59,6 +59,7 @@ class ProductController extends Controller {
             'code' => 'required|unique:products',
             'name' => 'required',
             'description' => 'required',
+            'price' => 'required|numeric|min:0',
             'image' => 'image|nullable|max:2048',
         ]);
 
@@ -74,6 +75,7 @@ class ProductController extends Controller {
             'code' => $request->code,
             'name' => $request->name,
             'description' => $request->description,
+            'price' => $request->price,
             'image' => $image,
         ]);
 
@@ -101,9 +103,10 @@ class ProductController extends Controller {
             'code' => "required|unique:products,code,{$product->id}",
             'name' => 'required',
             'description' => 'required',
+            'price' => 'required|numeric|min:0',
             'image' => 'image|nullable|max:2048',
         ]);
-// dd($request->all());
+        // dd($request->all());
         if ($request->hasFile('image')) {
             $this->deleteFile($product->image); // Delete old image
             $product->image = $this->storeImage($request->file('image'), 'products');
@@ -115,6 +118,7 @@ class ProductController extends Controller {
             'code' => $request->code,
             'name' => $request->name,
             'description' => $request->description,
+            'price' => $request->price,
             'image' => $product->image,
         ]);
 

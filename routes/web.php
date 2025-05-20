@@ -206,7 +206,7 @@ Route::get('/ResetPasswordLoad', [UserController::class, 'ResetPasswordLoad'])->
 Route::post('/ResetPassword', [UserController::class, 'ResetPassword'])->name('ResetPassword');
 Route::get('/get-subcategories/{category_id}', [ProductController::class, 'getSubcategories']);
 
-Route::get('admin/unlock', [Admin::class, 'unlock'])->name('unlock')->middleware('AdminAlreadyLoggedIn');
+Route::get('admin/unlock', [Admin::class, 'unlock'])->name('unlock');
 Route::post('/update-mode', [Admin::class, 'updateMode']);
 Route::get('/get-user-mode', [Admin::class, 'getUserMode'])->name('getUserMode');
 Route::group(['prefix' => 'admin', 'middleware' => ['check.session', 'super.admin']], function () {

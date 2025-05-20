@@ -33,7 +33,8 @@
                                 {{-- Category --}}
                                 <div class="mb-3">
                                     <label for="category_id" class="form-label">{{ __('Categoría') }}</label>
-                                    <select name="category_id" id="category_id" class="form-control @error('category_id') is-invalid @enderror">
+                                    <select name="category_id" id="category_id"
+                                        class="form-control @error('category_id') is-invalid @enderror">
                                         <option value="">{{ __('Seleccionar Categoría') }}</option>
                                         @foreach ($categories as $category)
                                             <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>
@@ -49,18 +50,20 @@
                                 {{-- Subcategory --}}
                                 {{-- <div class="mb-3">
                                     <label for="subcategory_id" class="form-label">{{ __('Subcategoría') }}</label>
-                                    <select name="subcategory_id" id="subcategory_id" class="form-control @error('subcategory_id') is-invalid @enderror">
+                                    <select name="subcategory_id" id="subcategory_id"
+                                        class="form-control @error('subcategory_id') is-invalid @enderror">
                                         <option value="">{{ __('Seleccionar Subcategoría') }}</option>
                                     </select>
                                     @error('subcategory_id')
-                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div> --}}
 
                                 {{-- Product Code --}}
                                 <div class="mb-3">
                                     <label for="code" class="form-label">{{ __('Código del Producto') }}</label>
-                                    <input type="text" name="code" class="form-control @error('code') is-invalid @enderror" value="{{ old('code') }}">
+                                    <input type="text" name="code" class="form-control @error('code') is-invalid @enderror"
+                                        value="{{ old('code') }}">
                                     @error('code')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -69,7 +72,8 @@
                                 {{-- Product Name --}}
                                 <div class="mb-3">
                                     <label for="name" class="form-label">{{ __('Nombre del Producto') }}</label>
-                                    <input type="text" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}">
+                                    <input type="text" name="name" class="form-control @error('name') is-invalid @enderror"
+                                        value="{{ old('name') }}">
                                     @error('name')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -78,8 +82,19 @@
                                 {{-- Description --}}
                                 <div class="mb-3">
                                     <label for="description" class="form-label">{{ __('Descripción') }}</label>
-                                    <textarea name="description" class="form-control @error('description') is-invalid @enderror">{{ old('description') }}</textarea>
+                                    <textarea name="description"
+                                        class="form-control @error('description') is-invalid @enderror">{{ old('description') }}</textarea>
                                     @error('description')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                                {{-- Price --}}
+                                <div class="mb-3">
+                                    <label for="price" class="form-label">{{ __('Precio') }}</label>
+                                    <input type="number" step="0.01" name="price"
+                                        class="form-control @error('price') is-invalid @enderror"
+                                        value="{{ old('price') }}">
+                                    @error('price')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -87,7 +102,8 @@
                                 {{-- Image --}}
                                 <div class="mb-3">
                                     <label for="image" class="form-label">{{ __('Imagen del Producto') }}</label>
-                                    <input type="file" name="image" class="form-control @error('image') is-invalid @enderror">
+                                    <input type="file" name="image"
+                                        class="form-control @error('image') is-invalid @enderror">
                                     @error('image')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -142,4 +158,3 @@
         });
     </script>
 @endsection
-
