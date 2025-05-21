@@ -21,6 +21,15 @@ class ProductController extends Controller
             Product::where('category_id', $category)->paginate(10)
         );
     }
+    public function getProducts()
+    {
+        $products = Product::all()->makeHidden(['subcategory_id']);
+        return response()->json([
+            'status' => true,
+            'message' => 'Product list fetched successfully',
+            'data' => $products
+        ]);
+    }
     // Show Product List
     public function list()
     {

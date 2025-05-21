@@ -26,6 +26,17 @@ class CategoryController extends Controller
     {
         $this->model = new Crud($category);
     }
+    public function getNameCategoryById($id)
+{
+    $category = Category::find($id);
+
+    if (!$category) {
+        return response()->json(['message' => 'Category not found'], 404);
+    }
+
+    return response()->json(['name' => $category->name]);
+}
+
     public function categories()
     {
         return response()->json(Category::all());

@@ -11,6 +11,29 @@ use Illuminate\Support\Str;
 
 class BannerController extends Controller
 {
+    public function getSliders(Request $request)
+    {
+        try {
+            // Fetch banners with only the required fields
+            $banners = Banner::select('title1', 'link', 'image')
+                ->get()
+                ->map(function ($banner) {
+                    // Prepend the base URL to the image path
+                    $banner->image = url($banner->image);
+                    return $banner;
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $banners,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to fetch sliders: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
     public function index()
     {
         if (Session::has('LoggedIn')) {
