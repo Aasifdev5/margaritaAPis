@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
@@ -100,7 +101,51 @@ class AuthController extends Controller
             return response()->json(['message' => 'Login failed', 'error' => $e->getMessage()], 500);
         }
     }
+// Get authenticated user profile
+   public function getProfile(Request $request)
+{
+    $user = $request->user();
 
+    return response()->json([
+        'name' => $user->name,
+        'email' => $user->email,
+        'phone' => $user->whatsapp_number, // Changed from phone to whatsapp_number
+        'profile_image' => $user->profile_image_url ?? null, // Add if you have profile images
+    ]);
+}
+
+public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+            'phone' => 'required|string|max:20',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user->update([
+            'name' => $request->name,
+            'email' => $request->email,
+            'whatsapp_number' => $request->phone, // Make sure this matches your DB column
+        ]);
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'user' => [
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->whatsapp_number,
+            ]
+        ]);
+    }
     public function logout(Request $request)
     {
         try {

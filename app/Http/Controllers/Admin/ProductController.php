@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\Subcategory;
 use App\Models\User;
@@ -21,6 +22,35 @@ class ProductController extends Controller
             Product::where('category_id', $category)->paginate(10)
         );
     }
+
+    public function getOrders(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+
+        $orders = Order::where('user_id', $user->id)->orderByDesc('created_at')->get();
+
+        $formatted = $orders->map(function ($order) {
+            // Decode items JSON string if it’s a string, otherwise use as-is
+            $items = is_string($order->items) ? json_decode($order->items, true) : $order->items;
+            $items = is_array($items) ? $items : []; // Ensure items is an array
+            return [
+                'orderNumber' => $order->order_number,
+                'date' => $order->created_at->format('d \d\e F \d\e Y'),
+                'total' => number_format($order->total, 2),
+                'items' => $items, // Return full items array
+            ];
+        });
+
+        return response()->json($formatted);
+    }
+
+
+
+
     public function getProducts()
     {
         $products = Product::all()->makeHidden(['subcategory_id']);

@@ -82,6 +82,19 @@ class User extends Authenticatable
     {
         return $this->hasMany(Comment::class);
     }
+    public function favorites()
+    {
+        return $this->hasMany(Favorite::class);
+    }
+
+    public function cart()
+    {
+        return $this->hasMany(Cart::class);
+    }
+    public function addresses()
+    {
+        return $this->hasMany(Address::class);
+    }
     public static function getUserFullname($id)
     {
         $userinfo = User::find($id);

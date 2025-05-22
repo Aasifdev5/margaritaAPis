@@ -179,19 +179,4 @@ class CartController extends Controller
             'payment_id' => $payment->id,
         ], 200);
     }
-    public function getOrders()
-{
-    $orders = Order::orderByDesc('created_at')->get(); // no user filter
-
-    $formatted = $orders->map(function ($order) {
-        return [
-            'orderNumber' => $order->order_number,
-            'date' => $order->created_at->format('d \d\e F \d\e Y'),
-            'total' => number_format($order->total, 2),
-            'items' => collect(json_decode($order->items))->pluck('name')->toArray(),
-        ];
-    });
-
-    return response()->json($formatted);
-}
-}
+    }
