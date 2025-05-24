@@ -109,74 +109,67 @@ class CartController extends Controller
             });
     }
 
-    public function checkout(Request $request)
-    {
-        $request->validate([
-            'payment_mode' => 'required|in:cash,card,upi,paypal,other',
-            'order_type' => 'required|in:delivery,takeaway,dine_in',
-            'delivery_address' => 'string|nullable', // Nullable for all order types
-            'notes' => 'string|nullable',
-            'payment_receipt' => 'file|mimes:jpg,png,pdf|max:2048|nullable',
-        ]);
+   public function checkout(Request $request)
+{
+    $request->validate([
+        'payment_mode' => 'required|in:cash,upi',
+        'order_type' => 'required|in:delivery,takeaway,dine_in',
+        'delivery_address' => 'string|nullable',
+        'notes' => 'string|nullable',
+    ]);
 
-        $user = Auth::user();
-        $cartItems = Cart::where('user_id', $user->id)->with('product')->get();
+    $user = Auth::user();
+    $cartItems = Cart::where('user_id', $user->id)->with('product')->get();
 
-        if ($cartItems->isEmpty()) {
-            return response()->json(['message' => 'Cart is empty'], 400);
-        }
-
-        $total = $cartItems->sum(function ($item) {
-            return $item->product->price * $item->quantity;
-        });
-
-        $items = $cartItems->map(function ($item) {
-            return [
-                'product_id' => $item->product->id,
-                'name' => $item->product->name,
-                'quantity' => $item->quantity,
-                'price' => $item->product->price,
-            ];
-        })->toArray();
-
-        // Handle payment receipt
-        $receiptPath = null;
-        if ($request->hasFile('payment_receipt')) {
-            $receiptPath = $request->file('payment_receipt')->store('payment_receipt', 'public');
-        }
-
-        // Create order
-        $order = Order::create([
-            'order_number' => Order::generateOrderNumber(),
-            'user_id' => $user->id,
-            'total' => $total,
-            'status' => 'pending',
-            'payment_mode' => $request->payment_mode,
-            'payment_status' => $request->payment_mode === 'cash' ? 'pending' : 'completed',
-            'items' => $items,
-            'delivery_address' => $request->delivery_address,
-            'order_type' => $request->order_type,
-            'notes' => $request->notes,
-        ]);
-
-        // Create payment
-        $payment = Payment::create([
-            'order_id' => $order->id,
-            'user_id' => $user->id,
-            'amount' => $total,
-            'payment_receipt' => $receiptPath,
-            'accepted' => $request->payment_mode === 'cash' ? 0 : 1,
-            'status' => 'initial',
-        ]);
-
-        // Clear cart
-        Cart::where('user_id', $user->id)->delete();
-
-        return response()->json([
-            'message' => 'Order placed successfully',
-            'order_id' => $order->id,
-            'order_number' => $order->order_number,
-            'payment_id' => $payment->id,
-        ], 200);
+    if ($cartItems->isEmpty()) {
+        return response()->json(['message' => 'Cart is empty'], 400);
     }
+
+    $total = $cartItems->sum(function ($item) {
+        return $item->product->price * $item->quantity;
+    });
+
+    $items = $cartItems->map(function ($item) {
+        return [
+            'product_id' => $item->product->id,
+            'name' => $item->product->name,
+            'quantity' => $item->quantity,
+            'price' => $item->product->price,
+        ];
+    })->toArray();
+
+    // Create order
+    $order = Order::create([
+        'order_number' => Order::generateOrderNumber(),
+        'user_id' => $user->id,
+        'total' => $total,
+        'status' => 'pending',
+        'payment_mode' => $request->payment_mode,
+        'payment_status' => 'pending',
+        'items' => $items,
+        'delivery_address' => $request->delivery_address,
+        'order_type' => $request->order_type,
+        'notes' => $request->notes,
+    ]);
+
+    // Create payment
+    $payment = Payment::create([
+        'order_id' => $order->id,
+        'user_id' => $user->id,
+        'amount' => $total,
+        'payment_receipt' => null,
+        'accepted' => 0,
+        'status' => 'initial',
+    ]);
+
+    // Clear cart
+    Cart::where('user_id', $user->id)->delete();
+
+    return response()->json([
+        'message' => 'Order placed successfully',
+        'order_id' => $order->id,
+        'order_number' => $order->order_number,
+        'payment_id' => $payment->id,
+    ], 200);
+}
     }
