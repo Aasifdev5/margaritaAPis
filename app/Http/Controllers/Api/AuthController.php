@@ -3,6 +3,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
+use Google\Client as GoogleClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -13,6 +17,142 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
+
+
+
+public function googleRegister(Request $request)
+{
+    try {
+        $request->validate([
+            'id_token' => 'required|string',
+            'whatsapp_number' => 'nullable|string|max:20',
+        ]);
+
+        // Verify Google ID token
+        $idToken = $request->id_token;
+        $client = new GoogleClient();
+        $client->setClientId('67662782473-8e4bpd8mu3a9md92o597ppsm82iqp2jf.apps.googleusercontent.com');
+        $payload = $client->verifyIdToken($idToken);
+
+        if (!$payload) {
+            Log::error('Invalid Google ID token', ['id_token' => $idToken]);
+            return response()->json(['message' => 'Invalid Google ID token'], 401);
+        }
+
+        $googleId = $payload['sub'];
+        $email = $payload['email'];
+        $name = $payload['name'];
+
+        // Check if user already exists
+        $user = User::where('email', $email)->first();
+        if ($user) {
+            Log::info('User already exists, logging in', ['email' => $email]);
+            return $this->googleLogin($request); // Reuse googleLogin logic
+        }
+
+        // Create new user
+        $user = User::create([
+            'name' => $name,
+            'email' => $email,
+            'password' => Hash::make(uniqid()), // Generate a random password
+            'whatsapp_number' => $request->whatsapp_number,
+            'google_id' => $googleId,
+        ]);
+
+        if (!$user) {
+            Log::error('Failed to create user', $request->all());
+            return response()->json(['message' => 'Failed to create user'], 500);
+        }
+
+        // Generate token
+        if (!\Schema::hasTable('personal_access_tokens')) {
+            Log::error('personal_access_tokens table not found');
+            return response()->json(['message' => 'Token table not found'], 500);
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+        Log::info('Token created for user ID: ' . $user->id, ['token' => $token]);
+
+        return response()->json([
+            'user' => $user,
+            'token' => $token,
+        ], 201);
+    } catch (\Exception $e) {
+        Log::error('Google registration error', ['error' => $e->getMessage()]);
+        return response()->json(['message' => 'Google registration failed', 'error' => $e->getMessage()], 500);
+    }
+}
+
+public function googleLogin(Request $request)
+    {
+        try {
+            $request->validate([
+                'id_token' => 'required|string',
+                'whatsapp_number' => 'nullable|string|max:20',
+            ]);
+
+            // Verify Google ID token
+            $idToken = $request->id_token;
+            $client = new GoogleClient();
+            $client->setClientId(env('GOOGLE_CLIENT_ID')); // Use .env
+            $payload = $client->verifyIdToken($idToken);
+
+            if (!$payload) {
+                Log::error('Invalid Google ID token', ['id_token' => $idToken]);
+                return response()->json(['message' => 'Invalid Google ID token'], 401);
+            }
+
+            $email = $payload['email'];
+            $name = $payload['name'] ?? 'Google User';
+            $googleId = $payload['sub'];
+
+            // Find or create user
+            $user = User::where('email', $email)->first();
+            if (!$user) {
+                $user = User::create([
+                    'name' => $name,
+                    'email' => $email,
+                    'password' => bcrypt('google_' . $googleId),
+                    'whatsapp_number' => $request->whatsapp_number ?? '',
+                    'google_id' => $googleId,
+                ]);
+                Log::info('New user created', ['email' => $email]);
+            } else {
+                $user->update([
+                    'whatsapp_number' => $request->whatsapp_number ?? $user->whatsapp_number,
+                    'google_id' => $googleId,
+                ]);
+                Log::info('User updated', ['email' => $email, 'whatsapp_number' => $request->whatsapp_number]);
+            }
+
+            // Log the user in
+            Auth::login($user);
+
+            // Generate token
+            if (!\Schema::hasTable('personal_access_tokens')) {
+                Log::error('personal_access_tokens table not found');
+                return response()->json(['message' => 'Token table not found'], 500);
+            }
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+            Log::info('Token created for user ID: ' . $user->id, ['token' => $token]);
+
+            return response()->json([
+                'user' => [
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'whatsapp_number' => $user->whatsapp_number,
+                ],
+                'token' => $token,
+            ], 200);
+        } catch (ValidationException $e) {
+            Log::error('Google login validation error', ['errors' => $e->errors()]);
+            return response()->json(['message' => 'Validation failed', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            Log::error('Google login error', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Google login failed', 'error' => $e->getMessage()], 500);
+        }
+    }
    public function register(Request $request)
 {
     try {

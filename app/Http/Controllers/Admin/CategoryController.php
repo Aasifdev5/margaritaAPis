@@ -70,15 +70,18 @@ class CategoryController extends Controller
         }
     }
 
-    public function store(Request $request)
-    {
+
+public function store(Request $request)
+{
+    try {
+        // Validate the request
         $request->validate([
-            // 'name' => 'required|string|max:255',
-            // 'image' => 'nullable|image|max:1024',
-            // 'meta_title' => 'nullable|string|max:255',
-            // 'meta_description' => 'nullable|string|max:255',
-            // 'meta_keywords' => 'nullable|string|max:255',
-            // 'og_image' => 'nullable|image|max:2048',
+            'name' => 'required|string|max:255',
+            'image' => 'nullable|image|max:1024', // 1MB max
+            'meta_title' => 'nullable|string|max:255',
+            'meta_description' => 'nullable|string|max:255',
+            'meta_keywords' => 'nullable|string|max:255',
+            'og_image' => 'nullable|image|max:2048', // 2MB max
         ]);
 
         $data = [
@@ -90,6 +93,7 @@ class CategoryController extends Controller
             'meta_keywords' => $request->meta_keywords,
         ];
 
+        // Handle image upload
         if ($request->hasFile('image')) {
             $attribute = $request->file('image');
             $destination = 'category';
@@ -98,6 +102,7 @@ class CategoryController extends Controller
             $data['image'] = 'uploads/' . $destination . '/' . $file_name;
         }
 
+        // Handle OG image upload
         if ($request->hasFile('og_image')) {
             $attribute = $request->file('og_image');
             $destination = 'meta';
@@ -106,71 +111,126 @@ class CategoryController extends Controller
             $data['og_image'] = 'uploads/' . $destination . '/' . $file_name;
         }
 
-        try {
-            $this->model->create($data);
-            return response()->json(['success' => true]);
-        } catch (\Exception $e) {
-            Log::error('Error creating category: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error creating category.'], 500);
-        }
-    }
+        // Create the category using the repository
+        $this->model->create($data);
 
-    public function edit($uuid)
+        return response()->json([
+            'success' => true,
+            'message' => 'Categoría creada correctamente.'
+        ]);
+    } catch (ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Errores de validación.',
+            'errors' => $e->errors()
+        ], 422);
+    } catch (\Exception $e) {
+        Log::error('Error creating category: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al crear la categoría.'
+        ], 500);
+    }
+}
+
+    public function edit($id)
     {
 
         if (Session::has('LoggedIn')) {
             $data['user_session'] = User::where('id', Session::get('LoggedIn'))->first();
             $data['title'] = 'Edit Category';
-            $data['category'] = $this->model->getRecordByUuid($uuid);
+            $data['category'] = $this->model->getRecordByid($id);
             return view('admin.category.edit', $data);
         }
     }
 
-    public function update(Request $request, $uuid)
-    {
 
-        $category = $this->model->getRecordByUuid($uuid);
-        $image = $category->image;
-        if ($request->hasFile('image')) {
-            $this->deleteFile($category->image);
-            // Handle new image upload
-            $attribute = $request->file('image');
-            $destination = 'category';
+public function update(Request $request, $id)
+{
+    try {
+        // Validate the request
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'image' => 'nullable|image|max:1024', // 1MB max
+            'meta_title' => 'nullable|string|max:255',
+            'meta_description' => 'nullable|string|max:255',
+            'meta_keywords' => 'nullable|string|max:255',
+            'og_image' => 'nullable|image|max:2048', // 2MB max
+        ]);
 
-            // Generate unique filename
-            $file_name = time() . '-' . Str::random(10) . '.' . $attribute->getClientOriginalExtension();
-            // Move uploaded file to the destination directory
-            $attribute->move(public_path('uploads/' . $destination), $file_name);
-            // Update image path
-            $image = 'uploads/' . $destination . '/' . $file_name;
-        }
+        // Fetch the category using the repository
+        $category = $this->model->getRecordById($id); // Use repository method
 
+        // Prepare data for update
         $data = [
             'name' => $request->name,
-            'is_feature' => $request->is_feature ? 'yes' : 'no',
-            'slug' => getSlug($request->name),
-            'image' => $image,
+            'is_feature' => $request->has('is_feature') ? 'yes' : 'no',
+            'slug' => Str::slug($request->name),
             'meta_title' => $request->meta_title,
             'meta_description' => $request->meta_description,
             'meta_keywords' => $request->meta_keywords,
         ];
 
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            // Delete old image if it exists
+            if ($category->image) {
+                $this->deleteFile($category->image);
+            }
+            $attribute = $request->file('image');
+            $destination = 'category';
+            $file_name = time() . '-' . Str::random(10) . '.' . $attribute->getClientOriginalExtension();
+            $attribute->move(public_path('uploads/' . $destination), $file_name);
+            $data['image'] = 'uploads/' . $destination . '/' . $file_name;
+        }
+
         // Handle OG image upload
         if ($request->hasFile('og_image')) {
+            // Delete old OG image if it exists
+            if ($category->og_image) {
+                $this->deleteFile($category->og_image);
+            }
             $attribute = $request->file('og_image');
             $destination = 'meta';
-
-            // Generate unique filename
             $file_name = time() . '-' . Str::random(10) . '.' . $attribute->getClientOriginalExtension();
-            // Move uploaded file to the destination directory
             $attribute->move(public_path('uploads/' . $destination), $file_name);
-            // Update og_image path
             $data['og_image'] = 'uploads/' . $destination . '/' . $file_name;
         }
 
-        $this->model->updateByUuid($data, $uuid); // update category
-        return response()->json(['success' => true]);
+        // Update the category using the repository
+        $this->model->update($data, $id); // Use repository's update method
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Categoría actualizada correctamente.'
+        ]);
+    } catch (ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Errores de validación.',
+            'errors' => $e->errors()
+        ], 422);
+    } catch (\Exception $e) {
+        Log::error('Error updating category: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al actualizar la categoría.'
+        ], 500);
     }
+}
+
+/**
+ * Delete a file from the public directory.
+ *
+ * @param string $filePath
+ * @return void
+ */
+protected function deleteFile($filePath)
+{
+    if ($filePath && file_exists(public_path($filePath))) {
+        unlink(public_path($filePath));
+    }
+}
 
    public function delete($id)
     {
