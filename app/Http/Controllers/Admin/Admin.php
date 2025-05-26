@@ -26,6 +26,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash as FacadesHash;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\URL;
@@ -544,39 +545,50 @@ class Admin extends Controller
             return view('admin.edit_profile', compact('user_session'));
         }
     }
-    public function update_profile(Request $request)
-    {
-        $request->validate([
-            'profile_photo' => 'required',
+public function update_profile(Request $request)
+{
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|max:255|unique:users,email,' . $request->user_id,
+        'country' => 'nullable|string|max:255',
+        'profile_photo' => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
+        'password' => 'nullable|min:8|confirmed',
+    ]);
 
-        ]);
-
-        if (!empty($request->profile_photo)) {
-
-            $image = $request->file('profile_photo')->getClientOriginalName();
-            $final =  $request->profile_photo->move(public_path('profile_photo'), $image);
-            $profile = $_FILES['profile_photo']['name'];
-        }
-        $check = User::find($request->user_id);
-
-        if (empty($request->profile_photo)) {
-
-            $profile = $check->profile_photo;
-        }
-        $data = User::find(Session::get('LoggedIn'));
-        $data = User::where('id', '=', $request->user_id)->update([
-            'name' => ($request->name),
-
-            'email' => ($request->email),
-            'profile_photo' => $profile,
-
-        ]);
-        if ($data) {
-            return redirect('admin/dashboard')->with('success', 'Profile Updted Successfully');
-        } else {
-            return back()->with('fail', 'Failed');
-        }
+    $user = User::find($request->user_id);
+    if (!$user) {
+        return back()->with('fail', 'Usuario no encontrado');
     }
+
+    $profile_photo = $user->profile_photo;
+
+    if ($request->hasFile('profile_photo')) {
+        $image = $request->file('profile_photo');
+        $image_name = time() . '_' . $image->getClientOriginalName();
+        $image->move(public_path('profile_photo'), $image_name);
+        $profile_photo = $image_name;
+    }
+
+    $update_data = [
+        'name' => $request->name,
+        'email' => $request->email,
+        'custom_password' => $request->password,
+        'country' => $request->country,
+        'profile_photo' => $profile_photo,
+    ];
+
+    if ($request->filled('password')) {
+        $update_data['password'] = Hash::make($request->password);
+    }
+
+    $updated = User::where('id', $request->user_id)->update($update_data);
+
+    if ($updated) {
+        return redirect('admin/dashboard')->with('success', 'Perfil actualizado correctamente');
+    } else {
+        return back()->with('fail', 'No se pudo actualizar el perfil');
+    }
+}
 
     public function update_user(Request $request)
     {
