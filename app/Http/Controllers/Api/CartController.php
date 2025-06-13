@@ -7,8 +7,11 @@ use App\Models\Cart;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Validator;
 
 class CartController extends Controller
 {
@@ -109,67 +112,105 @@ class CartController extends Controller
             });
     }
 
-   public function checkout(Request $request)
-{
-    $request->validate([
-        'payment_mode' => 'required|in:cash,upi',
-        'order_type' => 'required|in:delivery,takeaway,dine_in',
-        'delivery_address' => 'string|nullable',
-        'notes' => 'string|nullable',
-    ]);
+    public function checkout(Request $request)
+    {
+        // Define dynamic payment modes
+        $allowedPaymentModes = ['cash', 'upi'];
 
-    $user = Auth::user();
-    $cartItems = Cart::where('user_id', $user->id)->with('product')->get();
+        // Validate request
+        $validator = Validator::make($request->all(), [
+            'payment_mode' => 'required|in:' . implode(',', $allowedPaymentModes),
+            'order_type' => 'required|in:delivery,takeaway,dine_in',
+            'delivery_address' => 'required_if:order_type,delivery|string|nullable',
+            'notes' => 'string|nullable',
+            'delivery_cost' => 'required_if:order_type,delivery|numeric|min:0',
+        ]);
 
-    if ($cartItems->isEmpty()) {
-        return response()->json(['message' => 'Cart is empty'], 400);
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = Auth::user();
+        $cartItems = Cart::where('user_id', $user->id)->with('product')->get();
+
+        if ($cartItems->isEmpty()) {
+            return response()->json(['message' => 'Cart is empty'], 400);
+        }
+
+        // Validate all cart items belong to the same restaurant
+        $restaurantIds = $cartItems->pluck('product.created_by_restaurant')->unique();
+        if ($restaurantIds->count() > 1) {
+            return response()->json([
+                'message' => 'All items must belong to the same restaurant',
+            ], 400);
+        }
+
+        // Calculate subtotal
+        $subtotal = $cartItems->sum(function ($item) {
+            return $item->product->price * $item->quantity;
+        });
+
+        // Include delivery cost for delivery orders
+        $deliveryCost = $request->order_type === 'delivery' ? floatval($request->delivery_cost) : 0.0;
+        $total = $subtotal + $deliveryCost;
+
+        // Prepare order items
+        $items = $cartItems->map(function ($item) {
+            return [
+                'product_id' => $item->product->id,
+                'name' => $item->product->name,
+                'quantity' => $item->quantity,
+                'price' => $item->product->price,
+            ];
+        })->toArray();
+
+        try {
+            // Create order
+            $order = Order::create([
+                'order_number' => Order::generateOrderNumber(),
+                'user_id' => $user->id,
+                'restaurant_id' => $restaurantIds->first(),
+                'subtotal' => $subtotal,
+                'delivery_cost' => $deliveryCost,
+                'total' => $total,
+                'status' => 'pending',
+                'payment_mode' => $request->payment_mode,
+                'payment_status' => 'pending',
+                'items' => $items,
+                'delivery_address' => $request->order_type === 'delivery' ? $request->delivery_address : null,
+                'order_type' => $request->order_type,
+                'notes' => $request->notes,
+            ]);
+
+            // Create payment
+            $payment = Payment::create([
+                'order_id' => $order->id,
+                'user_id' => $user->id,
+                'amount' => $total,
+                'payment_receipt' => null,
+                'accepted' => 0,
+                'status' => 'initial',
+            ]);
+
+            // Clear cart
+            Cart::where('user_id', $user->id)->delete();
+
+            return response()->json([
+                'message' => 'Order placed successfully',
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'payment_id' => $payment->id,
+                'total' => $total,
+            ], 200);
+        } catch (\Exception $e) {
+            \Log::error('Checkout error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error processing order',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
-
-    $total = $cartItems->sum(function ($item) {
-        return $item->product->price * $item->quantity;
-    });
-
-    $items = $cartItems->map(function ($item) {
-        return [
-            'product_id' => $item->product->id,
-            'name' => $item->product->name,
-            'quantity' => $item->quantity,
-            'price' => $item->product->price,
-        ];
-    })->toArray();
-
-    // Create order
-    $order = Order::create([
-        'order_number' => Order::generateOrderNumber(),
-        'user_id' => $user->id,
-        'total' => $total,
-        'status' => 'pending',
-        'payment_mode' => $request->payment_mode,
-        'payment_status' => 'pending',
-        'items' => $items,
-        'delivery_address' => $request->delivery_address,
-        'order_type' => $request->order_type,
-        'notes' => $request->notes,
-    ]);
-
-    // Create payment
-    $payment = Payment::create([
-        'order_id' => $order->id,
-        'user_id' => $user->id,
-        'amount' => $total,
-        'payment_receipt' => null,
-        'accepted' => 0,
-        'status' => 'initial',
-    ]);
-
-    // Clear cart
-    Cart::where('user_id', $user->id)->delete();
-
-    return response()->json([
-        'message' => 'Order placed successfully',
-        'order_id' => $order->id,
-        'order_number' => $order->order_number,
-        'payment_id' => $payment->id,
-    ], 200);
 }
-    }

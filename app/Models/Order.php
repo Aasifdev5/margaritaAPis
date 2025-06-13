@@ -10,9 +10,17 @@ class Order extends Model
 {
     use HasFactory, SoftDeletes;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
     protected $fillable = [
         'order_number',
         'user_id',
+        'restaurant_id',
+        'subtotal',
+        'delivery_cost',
         'total',
         'status',
         'payment_mode',
@@ -23,25 +31,57 @@ class Order extends Model
         'notes',
     ];
 
+    /**
+     * The attributes that should be cast to native types.
+     *
+     * @var array
+     */
     protected $casts = [
-        'items' => 'array', // Automatically decode JSON to array
+        'items' => 'array',
         'status' => 'string',
         'payment_mode' => 'string',
         'payment_status' => 'string',
         'order_type' => 'string',
+        'subtotal' => 'float',
+        'delivery_cost' => 'float',
+        'total' => 'float',
     ];
 
+    /**
+     * Get the user that placed the order.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Get the restaurant associated with the order.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function restaurant()
+    {
+        return $this->belongsTo(Restaurant::class);
+    }
+
+    /**
+     * Get the payments associated with the order.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
     public function payments()
     {
         return $this->hasMany(Payment::class);
     }
 
-    // Generate unique order number
+    /**
+     * Generate a unique order number based on the current year.
+     *
+     * @return string
+     */
     public static function generateOrderNumber()
     {
         $year = date('Y');
@@ -53,3 +93,4 @@ class Order extends Model
         return $prefix . str_pad($number, 3, '0', STR_PAD_LEFT);
     }
 }
+?>

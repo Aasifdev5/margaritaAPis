@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Admin\BannerController;
+use App\Http\Controllers\Admin\CategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -13,14 +13,16 @@ use App\Http\Controllers\Admin\BannerController;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
-use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\QuotationController;
+use App\Http\Controllers\Admin\RestaurantController;
+use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\FavoriteController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
 
 
 
@@ -34,11 +36,14 @@ Route::get('/products/{category}', [ProductController::class, 'index']);
 Route::get('/products', [ProductController::class, 'getProducts']);
 Route::get('subcategories/{category}', [CategoryController::class, 'subcategories']);
 Route::post('quotations', [QuotationController::class, 'store']);
+Route::get('/opening-hours/{restaurant_id}', [RestaurantController::class, 'getOpeningHours']);
+Route::get('/restaurants/{id}/coordinates', [RestaurantController::class, 'getCoordinates']);
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/google-register', [AuthController::class, 'googleRegister']);
 Route::post('/google-login', [AuthController::class, 'googleLogin']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);

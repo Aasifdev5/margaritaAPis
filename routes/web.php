@@ -39,27 +39,33 @@ use App\Http\Controllers\Admin\MailTemplateController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\NewsController;
 
+use App\Http\Controllers\Admin\OrderController;
+
 use App\Http\Controllers\Admin\Pages;
 
 use App\Http\Controllers\Admin\PortfolioController;
 
 use App\Http\Controllers\Admin\ProductController;
 
+
+use App\Http\Controllers\Admin\QRCodeController;
 use App\Http\Controllers\Admin\ResetPasswordController;
-
-
+use App\Http\Controllers\Admin\RestaurantController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\SubcategoryController;
 use App\Http\Controllers\Admin\SupportTicketController;
 use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\Admin\TestimonialController;
-use App\Http\Controllers\Admin\QRCodeController;
+use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\SetLocale;
 use App\Models\Language;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Route;
+
+
+
 
 
 
@@ -222,10 +228,14 @@ Route::group(['prefix' => 'admin', 'middleware' => ['check.session', 'super.admi
             Route::delete('/{product}', [ProductController::class, 'destroy'])->name('products.destroy'); // Delete Product
             Route::post('/bulk-delete', [ProductController::class, 'bulkDelete'])->name('products.bulkDelete'); // Bulk Delete
         });
-         Route::get('/qrcode', [QRCodeController::class, 'index'])->name('qrcode.index')->middleware('AdminIsLoggedIn');
+        Route::get('/qrcode', [QRCodeController::class, 'index'])->name('qrcode.index')->middleware('AdminIsLoggedIn');
         Route::get('/destroy_qrcode/{id}', [QRCodeController::class, 'destroy'])->name('destroy');
         Route::post('/qrcode/generate', [QRCodeController::class, 'generateQrCode'])->name('qrcode.generate');
         Route::get('/qrcode/download/{data}', [QRCodeController::class, 'downloadQrCode'])->name('qrcode.download');
+        Route::get('/orders', [OrderController::class, 'index'])->name('admin.orders.index');
+        Route::get('/orders/data', [OrderController::class, 'data'])->name('admin.orders.data');
+        Route::get('/orders/export', [OrderController::class, 'export'])->name('admin.orders.export');
+        Route::post('/orders/{order}/complete', [OrderController::class, 'markAsCompleted'])->name('admin.orders.complete');
         // Testimonial routes
         Route::prefix('testimonials')->group(function () {
             Route::get('/', [TestimonialController::class, 'index'])->name('testimonials.index');
@@ -516,7 +526,10 @@ Route::group(['prefix' => 'admin', 'middleware' => ['check.session', 'super.admi
 
             Route::post('bulk-delete', [CategoryController::class, 'bulkDelete'])->name('category.bulk.delete');
         });
-
+        Route::get('/restaurants', [RestaurantController::class, 'index'])->name('restaurants.index');
+        Route::post('/restaurants', [RestaurantController::class, 'store'])->name('restaurants.store');
+        Route::put('/restaurants/{restaurant}', [RestaurantController::class, 'update'])->name('restaurants.update');
+        Route::delete('/restaurants/{restaurant}', [RestaurantController::class, 'destroy'])->name('restaurants.destroy');
 
         Route::prefix('subcategory')->group(function () {
             Route::get('/', [SubcategoryController::class, 'index'])->name('subcategory.index');
@@ -608,7 +621,6 @@ Route::group(['prefix' => 'admin', 'middleware' => ['check.session', 'super.admi
         Route::post('sendMail/{id}', [EmailAppController::class, 'sendMail'])->name('sendMail');
         Route::get('email-compose', [EmailAppController::class, 'compose'])->name('compose')->middleware('AdminIsLoggedIn');
     });
-
 });
 // Public routes (accessible without authentication)
 Route::get('/admin/login', [Admin::class, 'admin'])->name('admin')->middleware('AdminAlreadyLoggedIn');
